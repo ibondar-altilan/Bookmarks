@@ -7,6 +7,7 @@ class MyProjectError(Exception):
     """A base class for my project exceptions"""
     pass
 
+
 class BadEpochType(MyProjectError):
     """A bad type of time epoch'"""
     def __init__(self, epoch_type):
@@ -16,16 +17,6 @@ class BadEpochType(MyProjectError):
             'at the time conversion'
         )
 
-# class FileNotFound(MyProjectError):
-#     """File not found error at the file opening.
-#     The substitution of this built-in exception"""
-#     pass
-#
-# class FileExistsError(MyProjectError):
-#     """File not found error at the file opening.
-#         The substitution of this built-in exception"""
-#     pass
-
 
 class NodeNotExist(MyProjectError):
     """Raise if named node doesn't exist in the common dict of nodes. It returns an appropriate error message"""
@@ -34,12 +25,14 @@ class NodeNotExist(MyProjectError):
             f'Node <{node_name}> does not exist {chr(10)}'
         )
 
+
 class FolderNotExist(MyProjectError):
     """Raise if named folder doesn't exist in the common dict of nodes. It returns an appropriate error message"""
     def __init__(self, folder_name):
         super().__init__(
             f'Node <{folder_name}> is not a folder {chr(10)}'
         )
+
 
 class FolderNotEmpty(MyProjectError):
     """Raise at a non-empty folder deleting request. It returns an appropriate error message"""

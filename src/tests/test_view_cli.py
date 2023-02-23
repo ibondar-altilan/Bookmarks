@@ -73,7 +73,7 @@ class TestViewCLI:
         assert self.cli.input_line('', VALID_CHARS) == ''  # empty return if invalid chars are occurred
         captured = capsys.readouterr()  # get the captured stdout
         expected = ('Character(s) "!" is/are not allowed in the names\n'
-                    'Use alphabetic, numeric and _-.  characters only\n'
+                    'Use alphabetic, numeric and _-. / characters only\n'
                     '\n')
         assert captured.out == expected
 

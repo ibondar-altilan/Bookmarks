@@ -7,9 +7,9 @@ Allows to add, delete, and modify bookmark nodes, which are folders and URLs.
 """
 import typing as t
 import exceptions  # user exceptions
-from model_json import TreeModel  # connection to the Model part of the pattern
+from model_json import ModelJSON  # connection to the Model part of the pattern
 
-from interfaces import View
+from view_interface import View
 from view_cli import ViewCLI  # connection to the View part of the pattern
 
 from common import VALID_CHARS, URL_FIELDS, FOLDER_FIELDS  # constants
@@ -46,7 +46,7 @@ class Presenter:
 
         self.view = View(ViewCLI())  # instance of a View implementation, here for CLI interface
         self.menu_items = self.START_MENU    # prepare for start main menu
-        self.tree_model = TreeModel()   # create an instance of the Model module
+        self.tree_model = ModelJSON()   # create an instance of the Model module
 
     # ---- begin of the execution methods section ----
 
@@ -359,7 +359,7 @@ class Presenter:
         if menu_item is None:
             return True  # return to the upper menu
 
-        self.view.output_string(f'Convert Chrome file <{filename}> to the tree')  # output the message
+        self.view.output_string(f'Convert external file <{filename}> to the tree')  # output the message
 
         result, data = menu_item.call(filename)  # execute the selected method, source filename as param
         if result:  # conversation was successful

@@ -17,7 +17,6 @@ Possible inputs are id_no, date_added:
 
 Class Folder (from Bookmark) is a folder entity, might have children entities
 Attributes:
-    cls._expanded    # True, read-only, assigns at the creation of object
     self.guid
     self.parent_guid
     self.name
@@ -28,7 +27,6 @@ Attributes:
 
 Class Url (from Bookmark) is an url entity, without children
 Attributes:
-    cls._expanded    # False, read-only, assigns at the creation of object
     self.guid
     self.parent_guid
     self.name
@@ -40,7 +38,7 @@ Attributes:
 """
 
 import uuid
-import datetime
+from datetime import datetime
 
 import exceptions
 
@@ -90,6 +88,9 @@ class RootBookmarks(Node, metaclass=Singleton):
     def __init__(self):
         self.nodes_dict = {}    # dict of all nodes in the tree: {'name': <object>,,,}
         self.children: list = list()  # create the list of child objects
+        today = datetime.today().replace(microsecond=0)  # get today datetime object
+        self.date_added = datetime.isoformat(today)  # insert the current datetime as a string
+        self.date_modified = datetime.isoformat(today)  # insert the current datetime as a string
         # default values for name and parent_guid, no parent_guid for the root
         super().__init__(name='roots', parent_guid=None)
 
@@ -187,7 +188,7 @@ class Bookmark(Node):
         self.id_no = id_no  # for compatibility with Chrome , will be assigned later
         # set date_added for compatibility with Chrome , might be updated later
         if not date_added:  # date_added parameter is omitted, set it from today datetime
-            today = datetime.datetime.today().replace(microsecond=0)    # get today datetime object
+            today = datetime.today().replace(microsecond=0)    # get today datetime object
             self.date_added = datetime.datetime.isoformat(today)  # insert the current datetime as a string
         else:
             self.date_added = date_added
@@ -204,7 +205,6 @@ class Bookmark(Node):
 
 class Folder(Bookmark):
     """Child class of Bookmark class"""
-    _expanded: bool = True  # objects of the Folder might have children
 
     def __init__(self, children=None, date_modified='', **kwargs):
         if not children:
@@ -213,16 +213,11 @@ class Folder(Bookmark):
             self.children = children  # save an incoming list
         # set date_added for compatibility with Chrome , might be updated later
         if not date_modified:  # date_added parameter is omitted, set it from today datetime
-            today = datetime.datetime.today().replace(microsecond=0)  # get today datetime object
-            self.date_modified = datetime.datetime.isoformat(today)  # insert the current datetime as a string
+            today = datetime.today().replace(microsecond=0)  # get today datetime object
+            self.date_modified = datetime.isoformat(today)  # insert the current datetime as a string
         else:
             self.date_modified = date_modified
         super().__init__(**kwargs)
-
-    # set <expanded> read only
-    @property
-    def expanded(cls):  # class property <expanded> is read only from an instance
-        return cls._expanded  # writing to <expanded> will raise AttributeError
 
     def update(self, **kwargs):
         """Here only children list and date_modified are changed"""
@@ -235,18 +230,12 @@ class Folder(Bookmark):
 
 class Url(Bookmark):
     """Child class of Bookmark class"""
-    _expanded: bool = False  # objects of the Url do not have children
 
     def __init__(self, url='', icon='', keywords='', **kwargs):
         self.url: str = url
         self.icon: str = icon
         self.keywords: str = keywords
         super().__init__(**kwargs)
-
-    # set <expanded> read only
-    @property
-    def expanded(cls):  # class property <expanded> is read only from an instance
-        return cls._expanded  # writing to <expanded> will raise AttributeError
 
     def update(self, **kwargs):
         """Here only url, icon, keywords are changed"""

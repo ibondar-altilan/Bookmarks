@@ -4,16 +4,25 @@ The bookmark tree is stored into a file in the json format.
 """
 import os
 import json
+import datetime
 
 import exceptions
+from time_convert import stamp_to_string
 from nodes import RootBookmarks
 from nodes import Folder
 from nodes import Url
 
 
 class MyJSONEncoder(json.JSONEncoder):
-    """Customisation of user class encoding: RootBookmarks, Folder, Url"""
-    def default(self, obj):
+    """Overwrite the default JSON encoder class from the json module
+
+    """
+    def default(self, obj: Folder | Url | RootBookmarks):
+        """Customize the encoding of the following custom classes: Root Bookmarks, Folder, Url.
+
+        :param obj: a tree object that is being serialized
+        :return: a dictionary of the input object to encode by json.py
+        """
         if isinstance(obj, Folder | Url):
             return obj.__dict__  # for serialisation return an object's dict instead of the object
         elif isinstance(obj, RootBookmarks):    # for RootBookmarks a recursive ref to the object has to eliminate
@@ -21,14 +30,20 @@ class MyJSONEncoder(json.JSONEncoder):
             del obj_copy['nodes_dict']   # remove the dict of all nodes from json image (for the copy only!!!)
             return obj_copy  # for serialisation return an object's dict instead of the object (edited copy !)
         else:
-            super().default(obj)
+            super().default(obj)  # the object does not need to be transformed
 
 
-class TreeModel:
+class ModelJSON:
+    """Implementation of a Model module with an internal tree structure.
+    Storing a tree database in JSON format.
+
+    """
     def __init__(self):
+        """Constructor method.
+        """
         self.root = RootBookmarks()     # create the unique bookmark's tree object
-        self.root.nodes_dict['roots'] = self.root  # initialisation of the dict of all nodes in the tree
-        self.current_tree = ''  # name of the current tree and json filename
+        self.root.nodes_dict['roots'] = self.root  # {'roots': self.root object}  is the first record to the nodes dict
+        self.current_tree = ''  # name of the current tree and database filename (json format)
         self.cwd = os.getcwd()  # current working directory
 
     def save_current_tree(self):
@@ -154,9 +169,13 @@ class TreeModel:
         self.dict_into_object(dct)  # decode nested dictionaries recursively
 
     # ---- section of format conversions
-
     def _chrome_into_object(self, dt):
-        """Conversation of chrome json structure to the internal node tree. Recursively and in-place."""
+        """Conversation of chrome json structure to the internal node tree.
+        Inner recursion for convert_chrome method, in-place conversion
+
+        :param dt: a dictionary with chrome json structure
+        :return: intermediate dictionary during recursion execution
+        """
         init_len = len(dt['children'])  # an initial length of the input dict
         while init_len:
             attr_dict = dt['children'][0]  # get first child from the list and remove it
@@ -170,10 +189,16 @@ class TreeModel:
             attr_dict['parent_name'] = dt['name']  # set parent name for child object
             if attr_dict.pop('type') == 'folder':
                 node_type = True  # this is a folder
+                if attr_dict['name'] != 'roots':  # skip format conversion for roots folder
+                    # convert timestamps of the folder
+                    attr_dict['date_added'] = stamp_to_string(int(attr_dict['date_added']), 'google')
+                    attr_dict['date_modified'] = stamp_to_string(int(attr_dict['date_modified']), 'google')
                 self.root.add_node(attr_dict, node_type)  # call an appropriated nodes method
                 self._chrome_into_object(attr_dict)  # recursion
             else:
                 node_type = False  # this is an url
+                # convert timestamp of the url
+                attr_dict['date_added'] = stamp_to_string(int(attr_dict['date_added']), 'google')
                 self.root.add_node(attr_dict, node_type)  # call an appropriated nodes method
 
             # an object has been created and added
@@ -182,11 +207,14 @@ class TreeModel:
         # return dct  # return the dict where dicts are replaced by equivalent objects - nodes
 
     def convert_chrome(self, filename: str) -> tuple[bool, str]:
-        """Convert Chrome bookmark JSON filename to the current tree. Return (True/False, error message)"""
+        """Convert Chrome bookmark JSON filename to the current tree. Return (True/False, error message)
+
+        :param filename: Google bookmark filename to convert
+        :return: (True, empty string)  or (False, error message)
+        """
         # ---- open and load JSON file of Chrome bookmarks, the file exists
-        with open(filename, 'r', encoding='utf-8') as f:   # open the tree image fail, or FileNotFoundError exception
+        with open(filename, 'r', encoding='utf-8') as f:   # open the tree image file, or raise FileNotFoundError
             source_file = json.load(f)   # read the json image and then close the file, image is a dict
-            # print(source_file)  # for debug only
 
         # ---- extract the roots dict only, checksum, sync_metadata and version attrs do not use
         chrome_keys = list(source_file)     # get chrome main keys of the bookmark object
@@ -197,7 +225,7 @@ class TreeModel:
         # ---- remove unnecessary attrs from source structure: checksum, version, sync_metadata ----
         chrome_roots = source_file['roots']    # roots names and values dictionary only - (name: root), ...
         # ---- prepare a dict to create our internal root from source data
-        tree_image = {}  # clear a attrs dict
+        tree_image = dict()  # clear attrs dict
         tree_image['children'] = list(chrome_roots.values())  # get a root children list, DO NOT VIEW !!!
         self.root.update_root(**tree_image)   # update the current tree with source values
 
@@ -210,5 +238,9 @@ class TreeModel:
         return True, ''
 
     def convert_mozilla(self, filename: str) -> tuple[bool, str]:
-        """Convert Mozilla bookmark filename to the current tree. Return (True/False, error message)"""
-        return True, ''
+        """Convert Mozilla bookmark filename to the current tree. Return (True/False, error message).
+
+        :param filename: Mozilla bookmark filename to convert
+        :return: (True, empty string)  or (False, error message)
+        """
+        return False, 'Implementation of the Mozilla format will be done later.\n'
