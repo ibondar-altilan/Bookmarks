@@ -177,7 +177,7 @@ class Presenter:
                 result, item_list = self.tree_model.get_child_names(node_name)  # get children names of the node
                 if not result:  # False
                     # an url has been selected
-                    attr_dict = self.tree_model.get_node_content(node_name)  # get all attributes of the node
+                    attr_dict = self.tree_model.get_node(node_name)  # get all attributes of the node
                     filtered_attrs = {key: attr_dict[key] for key in URL_FIELDS}  # a dict of editable fields
 
                     # edit the filtered attributes of the selected node
@@ -230,7 +230,7 @@ class Presenter:
                     if node_stack:
                         node_name = node_stack.pop()  # get the parent folder name from the node's stack
                 case [False, 1]:  # modify this folder
-                    attr_dict = self.tree_model.get_node_content(node_name)  # get all attributes of the node
+                    attr_dict = self.tree_model.get_node(node_name)  # get all attributes of the node
                     filtered_attrs = {key: attr_dict[key] for key in FOLDER_FIELDS}  # a dict with only required fields
 
                     # select a folder field

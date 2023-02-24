@@ -5,6 +5,7 @@ The bookmark tree is stored into a file in the json format.
 import os
 import json
 import datetime
+import sys
 
 import exceptions
 from time_convert import stamp_to_string
@@ -43,12 +44,15 @@ class ModelJSON:
         """
         self.root = RootBookmarks()     # create the unique bookmark's tree object
         self.root.nodes_dict['roots'] = self.root  # {'roots': self.root object}  is the first record to the nodes dict
-        self.current_tree = ''  # name of the current tree and database filename (json format)
+        self.tree_name = ''  # name of the current tree and database filename (json format)
         self.cwd = os.getcwd()  # current working directory
 
-    def save_current_tree(self):
-        """Save the tree to the self.current_tree json file"""
-        with open(self.current_tree, "w") as write_file:
+    def _save_tree(self):
+        """Save the tree to the self.current_tree json file
+
+        :return: nothing
+        """
+        with open(self.tree_name, "w") as write_file:
             json.dump(self.root, write_file, cls=MyJSONEncoder)
 
     def check_folder(self, name):
@@ -58,15 +62,6 @@ class ModelJSON:
             return (True, None)  # True if OK, None is second formal return value for compatibility
         except (exceptions.NodeNotExist, exceptions.FolderNotExist) as e:
             return (False, e)   # the node doesn't exist of is not a folder, False and error message return
-
-    def output_children_names(self, children):
-        """Output children names from incoming list of th children objects"""
-        for x in children:
-            name = x.__dict__['name']   # get next children name
-            if 'children' in x.__dict__:    # folders must have the 'children' key
-                name = '(' + name + ')'  # parentheses for folder child elements
-            print(name, end=' ')
-        print()
 
     def get_child_names(self, name: str) -> tuple[bool, tuple[str, ...]]:
         """Return True and the list of child names of the node <name>.
@@ -79,94 +74,105 @@ class ModelJSON:
         else:
             return False, ()  # return False, empty tuple for url node
 
-
-    def get_children(self, name):
-        """Return a nested list of child objects of the node 'name'.
-        If the node is an url then return None.
-        If node does not exist then raise NodeNotExist"""
-        node = self.root.check_node(name)  # return an object or raise NodeNotExist
-        if 'children' in node.__dict__:
-            result = []
-            for x in node.children:     # iteration within a child list
-                nested_name = x.name  # a name of the nested object
-                res = self.get_children(nested_name)  # recursion
-                result.append(res)  # add a child name and list to the result
-            return name, result   # for folder return a tuple (name, [children])
-        else:
-            return name, None  # for url return a tuple (name, None)
-
-    def get_node_content(self, name):
-        """Return the node content dict of the node 'name'"""
-        node_object = self.root.nodes_dict[name]  # get the node instance
-        node_content = node_object.__dict__.copy()   # make a local dict copy of the node
-
-        # ---- check if the node is a folder ----
-        if 'children' in node_content:  # any folder has a children list
-            # ---- prepare the node content dict ----
-            name_list = []      # prepare an empty name children list
-            for x in node_content['children']:  # get the names of the children list
-                name_list.append(x.__dict__['name'])
-            node_content['children'] = name_list
-
-        return node_content
-
-    def add_node(self, attr_dict, node_type):
+    def add_node(self, attr_dict: dict, node_type: bool):
         """Add a folder or url to the tree, parameters come from input dict.
         node_type = True for a folder creation otherwise url."""
         self.root.add_node(attr_dict, node_type)  # call an appropriated nodes method
-        self.save_current_tree()  # save the updated current root
+        self._save_tree()  # save the updated current root
 
+    # ---- nodes section ----
     def update_node(self, name, attr_dict):
         """Update a folder or url with <name> in the internal tree, parameters from input dict."""
         self.root.update_node(name, attr_dict)  # call an appropriated nodes method
-        self.save_current_tree()  # save the updated current root
+        self._save_tree()  # save the updated current root
 
     def delete_node(self, name):
         """Delete a node from the current tree, name as parameter"""
         self.root.delete_node(name)     # call a nodes method
-        self.save_current_tree()    # save the updated current root
+        self._save_tree()    # save the updated current root
 
-    def create_database(self, name):
-        """Create a new database with 'name', if 'name' already exists then FileExistsError exception.
-        Create also an empty bookmark tree and return it
+    def get_node(self, name: str) -> dict:
+        """Get a node content.
+        Replace children objects with their names for folder children list
+
+        :param name: node name
+        :return: dictionary {field_name: field_value} of the node
         """
-        with open(name, 'x') as f:     # open a new file as exclusive, of FileExistsError if such a file exists
-            pass    # ask for file recreating , see a controller logic
-        self.current_tree = name    # store the name of the current bookmark tree
-        self.save_current_tree()  # save a new tree to the json file
+        node_object = self.root.nodes_dict[name]  # get the node instance
+        node_content = node_object.__dict__.copy()   # local copy of the node's dict
 
-    def delete_database(self, name):
-        """Delete the database file"""
+        # ---- check if the node is a folder ----cl
+        if 'children' in node_content:  # any folder has a children list
+            # ---- replace objects with their names ----
+            children_list = [x.name for x in node_content['children']]  # get children names
+            node_content['children'] = children_list  # put children names instead of objects
+
+        return node_content
+
+    # ---- database section ----
+    def create_database(self, name: str):
+        """Create an empty bookmark structure and a file to keep the database.
+
+        :exceptions: FileExistsError if given filename exists
+
+        :param name: name and filename of the new database
+        :return: nothing
+        """
+        with open(name, 'x') as f:     # open a new file as exclusive, of c if such a file exists
+            pass    # ask for file recreating , see a controller logic
+        self.tree_name = name    # store the name of the current bookmark tree
+        self._save_tree()  # save a new tree to the json file
+
+    def delete_database(self, name: str):
+        """Delete the database file.
+
+        :exception: FileNotFoundError if the filename does not exist
+
+        :param name: name and filename of the deleting database
+        :return: True if success otherwise False
+        """
         os.remove(name)
 
-    def dict_into_object(self, dct):
-        """Convert a dict into an object. Add the item (key, value) to the node's dict. Recursively."""
-        i = 0  # an index in the children list
-        for x in dct['children']:   # an iteration of child objects
-            if 'children' in x:     # this object 'x' has a child list, so it is a folder
-                self.dict_into_object(x)    # recursion call for the nested child list
-                the_node = Folder(**x)  # get a Folder object from dict json attributes
-            else:  # an url found
-                the_node = Url(**x)  # get an Url object from dict json attributes
+    def open_database(self, name: str):
+        """Open a database, read and extract it into a bookmark tree.
 
-            dct['children'][i] = the_node  # put the object to the children list
-            self.root.nodes_dict[the_node.__dict__['name']] = the_node  # add an item 'name, object' to the node's dict
-            i += 1
-        return dct     # return the dict where dicts are replaced by equivalent objects - nodes
+        :exception: FileNotFoundError if the filename does not exist
 
-    def open_database(self, name):
-        """Open a database if it exists, read and extract it into a bookmark tree."""
+        :param name: name and filename of the deleting database
+        :return: nothing
+        """
+
+        def _dict_into_object(dct: dict) -> dict:
+            """Convert a dict into an object. Add the item (key, value) to the node's dict. Recursively.
+
+            :param dct: input dictionary
+            :return: intermediate dictionary during the recursion executes
+            """
+            i = 0  # an index in the children list
+            for x in dct['children']:  # an iteration of children
+                if 'children' in x:  # item has a child list, so it is a folder
+                    _dict_into_object(x)  # recursion call for the nested child list
+                    the_node = Folder(**x)  # crate a Folder object from dict json attributes
+                else:  # an url found
+                    the_node = Url(**x)  # create an Url object from dict json attributes
+
+                dct['children'][i] = the_node  # put the object to the children list
+                self.root.nodes_dict[the_node.name] = the_node  # add an pair 'name: object' to the global node's dict
+                i += 1
+            return dct  # return the dict where dicts are replaced by equivalent objects - nodes
+
+        # ---- body of the open_database() ----
         # ---- read json database ----
         with open(name, 'r') as f:   # open the tree image file, or FileNotFoundError exception
             tree_image = json.load(f)   # read the json image and then close the file, image is a dict
-        self.current_tree = name    # set the current tree name
+        self.tree_name = name    # set the current tree name
 
         # ---- update the root from the json image ----
         self.root.update_root(**tree_image)
 
         # ---- decode nested dictionaries from json image to the original objects and add it to the node's list ----
-        dct = self.root.__dict__  # start from the root children
-        self.dict_into_object(dct)  # decode nested dictionaries recursively
+        dt = self.root.__dict__  # start from the root children
+        _dict_into_object(dt)  # decode nested dictionaries recursively
 
     # ---- section of format conversions
     def _chrome_into_object(self, dt):
@@ -233,7 +239,7 @@ class ModelJSON:
         dt = self.root.__dict__  # start from the root children
         self._chrome_into_object(dt)  # decode nested dictionaries recursively
 
-        self.save_current_tree()  # save the updated current root
+        self._save_tree()  # save the updated current root
 
         return True, ''
 

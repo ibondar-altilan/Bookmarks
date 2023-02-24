@@ -1,4 +1,4 @@
-"""Interfaces between Presenter class and View and Model implementations."""
+"""Interfaces between Presenter class and View aimplementations."""
 
 import typing as t
 from common import Field  # import a namedtuple Field

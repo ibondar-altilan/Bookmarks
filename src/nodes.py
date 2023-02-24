@@ -97,6 +97,8 @@ class RootBookmarks(Node, metaclass=Singleton):
     def update_root(self, **kwargs):
         """Here only root children list is changed"""
         self.children = kwargs.pop('children')
+        self.date_added = kwargs.pop('date_added')
+        self.date_modified = kwargs.pop('date_modified')
         super().update(**kwargs)
 
     def name_double(self, name):
@@ -189,7 +191,7 @@ class Bookmark(Node):
         # set date_added for compatibility with Chrome , might be updated later
         if not date_added:  # date_added parameter is omitted, set it from today datetime
             today = datetime.today().replace(microsecond=0)    # get today datetime object
-            self.date_added = datetime.datetime.isoformat(today)  # insert the current datetime as a string
+            self.date_added = datetime.isoformat(today)  # insert the current datetime as a string
         else:
             self.date_added = date_added
         super().__init__(**kwargs)
