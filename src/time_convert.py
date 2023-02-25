@@ -30,11 +30,11 @@ def stamp_to_object(timestamp: int, epoch_type: str) -> datetime:
     epoch_type = epoch_type.lower()  # to lower case
 
     if epoch_type == 'windows':
-        timestamp = timestamp / 10_000_000 - DELTA  # from Windows format to Unix
+        timestamp = timestamp // 10_000_000 - DELTA  # from Windows format to Unix
     elif epoch_type == 'google':
-        timestamp = timestamp / 1_000_000 - DELTA   # from Google format to Unix
+        timestamp = timestamp // 1_000_000 - DELTA   # from Google format to Unix
     elif epoch_type == 'javascript':
-        timestamp = timestamp / 1_000   # from Javascript format to Unix
+        timestamp = timestamp // 1_000   # from Javascript format to Unix
     elif epoch_type == 'unix':     # is already the Unix format
         pass
     else:
@@ -76,7 +76,7 @@ def object_to_stamp(datetime_instance: datetime, epoch_type: str) -> int:
                      datetime_instance.microsecond  # from Unix format to Google format
     elif epoch_type == 'javascript':
         timestamp = int(datetime_instance.timestamp()) * 1_000 + \
-                    datetime_instance.microsecond / 1_000  # from Unix format to Javascript format
+                    datetime_instance.microsecond // 1_000  # from Unix format to Javascript format
     elif epoch_type == 'unix':  # is already the Unix format
         timestamp = int(datetime_instance.timestamp())
     else:
@@ -96,8 +96,8 @@ def main():
     epoch_type = 'Google'
     datetime_instance = datetime(2016, 1, 22, 10, 29, 42, 951728)
     print(datetime_instance.microsecond)
-    res = object_to_stamp(datetime_instance, epoch_type)
-    print(res)
+    result = object_to_stamp(datetime_instance, epoch_type)
+    print(result)
 
 if __name__ == '__main__':
     main()

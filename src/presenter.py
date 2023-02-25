@@ -5,7 +5,10 @@ Creates, opens and converts bookmark files of internet browsers to the internal 
 Allows to add, delete, and modify bookmark nodes, which are folders and URLs.
 
 """
+import sys
+import traceback
 import typing as t
+
 import exceptions  # user exceptions
 from model_json import ModelJSON  # connection to the Model part of the pattern
 
@@ -81,7 +84,7 @@ class Presenter:
                 self.view.output_string(f'Hold an existing bookmark tree <{name}>'
                                         f' {chr(10)}')  # chr(10) instead of '\n', which is not possible in the f-string
                 return True  # to the main menu
-            self.tree_model.delete_database(name)   # delete existing file before
+            self.tree_model.delete_database(name)   # delete existing db and file before
             self.tree_model.create_database(name)  # create a new database file
         self.menu_items = self.MAIN_MENU    # if file creating was ok - set the full main menu
         self.view.output_string(f'Current database is <{name}> {chr(10)}')  # output the current db name
@@ -133,11 +136,18 @@ class Presenter:
         name = self.view.input_line(prompt, VALID_CHARS)  # get a parent folder name
         if name is None:
             return False  # break
-        result = self.tree_model.check_folder(name)  # check if the folder 'name' OK, return (True/False, err_message)
-        if result[0]:   # if the named folder exists and is valid
+
+        try:
+            result, data = self.tree_model.get_child_names(name)  # get children names if they present
+        except exceptions.NodeNotExists as e:
+            self.view.output_string(str(e))  # output error if name doesn't exist
+            return False  # to the main menu
+        # check if it is a folder, returned (True/False, children names/empty)
+        if result:   # if the named folder exists
             attr_dict['parent_name'] = name     # set a parent node name of the new node
         else:
-            self.view.output_string(result[1])  # output error if name doesn't exist, or it isn't a folder
+            message = f'Node <{name}> is not a folder {chr(10)}'
+            self.view.output_string(message)  # output a success message
             return False  # to the main menu
 
         # ---- type request: folder or url ----
@@ -177,7 +187,12 @@ class Presenter:
                 result, item_list = self.tree_model.get_child_names(node_name)  # get children names of the node
                 if not result:  # False
                     # an url has been selected
-                    attr_dict = self.tree_model.get_node(node_name)  # get all attributes of the node
+                    try:
+                        attr_dict = self.tree_model.get_node(node_name)  # get all attributes of the node if it exists
+                    except exceptions.NodeNotExists as e:
+                        traceback.print_exception(e, file=sys.stdout)  # traceback output
+                        sys.exit(1)  # stop execution with an error
+                    # ok, continue
                     filtered_attrs = {key: attr_dict[key] for key in URL_FIELDS}  # a dict of editable fields
 
                     # edit the filtered attributes of the selected node
@@ -209,7 +224,7 @@ class Presenter:
                             self.view.output_string(message)  # output a error message
                             return False
 
-            except exceptions.NodeNotExist as e:
+            except exceptions.NodeNotExists as e:
                 self.view.output_string(str(e))  # named folder doesn't exist, output an error message
                 return False
 
@@ -230,7 +245,12 @@ class Presenter:
                     if node_stack:
                         node_name = node_stack.pop()  # get the parent folder name from the node's stack
                 case [False, 1]:  # modify this folder
-                    attr_dict = self.tree_model.get_node(node_name)  # get all attributes of the node
+                    try:
+                        attr_dict = self.tree_model.get_node(node_name)  # get all attributes of the node if it exists
+                    except exceptions.NodeNotExists as e:
+                        traceback.print_exception(e, file=sys.stdout)  # traceback output
+                        sys.exit(1)  # stop execution with an error
+                    # ok, continue
                     filtered_attrs = {key: attr_dict[key] for key in FOLDER_FIELDS}  # a dict with only required fields
 
                     # select a folder field
@@ -286,7 +306,7 @@ class Presenter:
         # ---- check if exists and if it's ok then delete the node or error output
         try:
             self.tree_model.delete_node(name)  # delete the node
-        except (exceptions.NodeNotExist, exceptions.FolderNotEmpty) as e:
+        except (exceptions.NodeNotExists, exceptions.FolderNotEmpty) as e:
             self.view.output_string(e)  # named folder doesn't exist or not empty, output an error message
             return False
         else:

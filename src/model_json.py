@@ -1,17 +1,26 @@
-"""A model part of the bookmark manager.
-This version creates an internal tree from node objects.
+"""A Model part of the bookmark manager.
+This version creates an internal tree of node objects.
 The bookmark tree is stored into a file in the json format.
+Methods of ModelJSON class for an interface:
+    get_child_names
+    add_node
+    update_node
+    delete_node
+    get_node
+    create_database
+    delete_database
+    open_database
+    convert_chrome
+    convert_mozilla
+
 """
 import os
 import json
-import datetime
-import sys
 
-import exceptions
 from time_convert import stamp_to_string
-from nodes import RootBookmarks
-from nodes import Folder
-from nodes import Url
+from my_nodes import RootBookmarks
+from my_nodes import Folder
+from my_nodes import Url
 
 
 class MyJSONEncoder(json.JSONEncoder):
@@ -42,7 +51,7 @@ class ModelJSON:
     def __init__(self):
         """Constructor method.
         """
-        self.root = RootBookmarks()     # create the unique bookmark's tree object
+        self.root = RootBookmarks()     # create a new bookmark's tree object
         self.root.nodes_dict['roots'] = self.root  # {'roots': self.root object}  is the first record to the nodes dict
         self.tree_name = ''  # name of the current tree and database filename (json format)
         self.cwd = os.getcwd()  # current working directory
@@ -55,39 +64,51 @@ class ModelJSON:
         with open(self.tree_name, "w") as write_file:
             json.dump(self.root, write_file, cls=MyJSONEncoder)
 
-    def check_folder(self, name):
-        """Check if the named node exists, and it's a folder. Return a tuple (True/False, None/error message)"""
-        try:
-            self.root.check_folder(name)
-            return (True, None)  # True if OK, None is second formal return value for compatibility
-        except (exceptions.NodeNotExist, exceptions.FolderNotExist) as e:
-            return (False, e)   # the node doesn't exist of is not a folder, False and error message return
+    # ---- nodes section ----
+    def get_child_names(self, node_name: str) -> tuple[bool, tuple[str, ...]]:
+        """Get a list of child names of the node.
 
-    def get_child_names(self, name: str) -> tuple[bool, tuple[str, ...]]:
-        """Return True and the list of child names of the node <name>.
-        If the node is an url then return False, empty tuple for url node.
-        If node does not exist then raise NodeNotExist"""
-        node = self.root.check_node(name)  # return an object or raise NodeNotExist
+        :exceptions: NodeNotExists if node_name does not exist
+
+        :param node_name: name of a node
+        :return: True/False, tuple of child's names/empty tuple
+        """
+        node = self.root.check_node(node_name)  # return an object or raise NodeNotExist
         if 'children' in node.__dict__:  # this is a folder
-            children = tuple([child.name for child in node.children])
+            children = tuple([child.name for child in node.__dict__['children']])
             return True, children  # return Tree, tuple of child's names
         else:
             return False, ()  # return False, empty tuple for url node
 
     def add_node(self, attr_dict: dict, node_type: bool):
-        """Add a folder or url to the tree, parameters come from input dict.
-        node_type = True for a folder creation otherwise url."""
+        """Add a folder or url to the tree and save the tree into the file
+
+        :param attr_dict: dictionary with initial node attributes
+        :param node_type: True for folder adding, False for url
+        :return: nothing
+        """
         self.root.add_node(attr_dict, node_type)  # call an appropriated nodes method
         self._save_tree()  # save the updated current root
 
-    # ---- nodes section ----
-    def update_node(self, name, attr_dict):
-        """Update a folder or url with <name> in the internal tree, parameters from input dict."""
+    def update_node(self, name: str, attr_dict: dict):
+        """Update a folder or url of the internal tree and save it into the file
+
+        :param name: updating node name
+        :param attr_dict: dictionary with the updating fields
+        :return: nothing
+        """
         self.root.update_node(name, attr_dict)  # call an appropriated nodes method
         self._save_tree()  # save the updated current root
 
-    def delete_node(self, name):
-        """Delete a node from the current tree, name as parameter"""
+    def delete_node(self, name: str):
+        """Delete a node from the current tree.
+
+        :raises NodeNotExists: if node_name does not exist
+        :raises FolderNotEmpty: if node_name folder is not empty
+
+        :param name: node name to delete
+        :return: nothing
+        """
         self.root.delete_node(name)     # call a nodes method
         self._save_tree()    # save the updated current root
 
@@ -95,19 +116,12 @@ class ModelJSON:
         """Get a node content.
         Replace children objects with their names for folder children list
 
+        :exceptions: raise NodeNotExists if node_name does not exist
+
         :param name: node name
         :return: dictionary {field_name: field_value} of the node
         """
-        node_object = self.root.nodes_dict[name]  # get the node instance
-        node_content = node_object.__dict__.copy()   # local copy of the node's dict
-
-        # ---- check if the node is a folder ----cl
-        if 'children' in node_content:  # any folder has a children list
-            # ---- replace objects with their names ----
-            children_list = [x.name for x in node_content['children']]  # get children names
-            node_content['children'] = children_list  # put children names instead of objects
-
-        return node_content
+        return self.root.get_node(name)     # call a nodes method
 
     # ---- database section ----
     def create_database(self, name: str):
@@ -131,11 +145,14 @@ class ModelJSON:
         :param name: name and filename of the deleting database
         :return: True if success otherwise False
         """
-        os.remove(name)
+        self.root = RootBookmarks()     # create a new bookmark's tree object
+        self.root.nodes_dict['roots'] = self.root  # {'roots': self.root object}  is the first record to the nodes dict
+        self.tree_name = ''  # name of the current tree and database filename (json format)
+        os.remove(name)  # delete the file
 
     def open_database(self, name: str):
         """Open a database, read and extract it into a bookmark tree.
-
+ node
         :exception: FileNotFoundError if the filename does not exist
 
         :param name: name and filename of the deleting database
@@ -148,6 +165,8 @@ class ModelJSON:
             :param dct: input dictionary
             :return: intermediate dictionary during the recursion executes
             """
+            the_node: Folder | Url  # explicit declaration for mypy
+
             i = 0  # an index in the children list
             for x in dct['children']:  # an iteration of children
                 if 'children' in x:  # item has a child list, so it is a folder
@@ -175,7 +194,7 @@ class ModelJSON:
         _dict_into_object(dt)  # decode nested dictionaries recursively
 
     # ---- section of format conversions
-    def _chrome_into_object(self, dt):
+    def _chrome_into_object(self, dt: dict) -> dict:
         """Conversation of chrome json structure to the internal node tree.
         Inner recursion for convert_chrome method, in-place conversion
 
@@ -190,7 +209,7 @@ class ModelJSON:
             attr_dict.pop('meta_info', None)  # remove a <meta_info> list if it presents
 
             # modify source structure to internal
-            attr_dict['name'] = self.root.name_double(attr_dict['name'])    # replace 'name' with 'name(i)' if doubled
+            attr_dict['name'] = self.root.duplicate_name(attr_dict['name'])  # replace duplicate name with name(i)
             attr_dict['id_no'] = attr_dict.pop('id')  # replace key 'id' with 'id_no' keeping its value
             attr_dict['parent_name'] = dt['name']  # set parent name for child object
             if attr_dict.pop('type') == 'folder':
