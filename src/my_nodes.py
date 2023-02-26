@@ -286,7 +286,10 @@ class RootBookmarks(Node):
         """
         node_object = self.nodes_dict[name]  # get the node object
 
-        # here will be an update of the node's datestamp, add the current date to attr_dict
+        # update of the parent node's date_modified field
+        parent_folder = self.get_parent(name)  # get the parent folder object
+        today = datetime.today().replace(microsecond=0)  # get today datetime object
+        parent_folder.date_modified = datetime.isoformat(today)  # insert the current datetime as a string
 
         node_object.update(**attr_dict)  # update a node instance
 
@@ -316,3 +319,17 @@ class RootBookmarks(Node):
                 children = x.children  # get the child list of the parent node
                 children.remove(node_object)  # delete the node's object from the parent's child list
         del self.nodes_dict[name]  # remove the node from global node dict
+
+    def get_parent(self, node_name: str) -> Folder:
+        """Get a parent node object of the current node
+
+        :raises NodeNotExists: if node_name does not exist
+
+        :param node_name: current node name
+        :return: parent node object
+        """
+        node_object = self.check_node(node_name)  # get the node instance if the node exists or raise NodeNotExist
+        parent_guid = node_object.parent_guid  # get the parend guid of the node
+        # create a set of folders whose GUID is equal to the parent GUID (actually only one item)
+        # and get the first (and unique) element of a such set
+        return next(iter({x for x in self.nodes_dict.values() if x.guid == parent_guid}))

@@ -1,4 +1,6 @@
+"""Common data for all modules of the project.
 
+"""
 from collections import namedtuple
 
 MenuItem = namedtuple('MenuItem', 'descr call')  # namedtuple for menu items, avoid dict and index access

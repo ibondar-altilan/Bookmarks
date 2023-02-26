@@ -65,7 +65,7 @@ class ModelJSON:
             json.dump(self.root, write_file, cls=MyJSONEncoder)
 
     # ---- nodes section ----
-    def get_child_names(self, node_name: str) -> tuple[bool, tuple[str, ...]]:
+    def get_children(self, node_name: str) -> tuple[bool, tuple[str, ...]]:
         """Get a list of child names of the node.
 
         :exceptions: NodeNotExists if node_name does not exist
@@ -229,7 +229,7 @@ class ModelJSON:
             # an object has been created and added
             del dt['children'][0]  # remove a dict of the added node
             init_len -= 1
-        # return dct  # return the dict where dicts are replaced by equivalent objects - nodes
+        return dt  # return the dict where dicts are replaced by equivalent objects - nodes
 
     def convert_chrome(self, filename: str) -> tuple[bool, str]:
         """Convert Chrome bookmark JSON filename to the current tree. Return (True/False, error message)

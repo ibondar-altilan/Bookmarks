@@ -3,6 +3,8 @@
 import json
 import os, os.path
 import sys
+from datetime import datetime
+
 
 import exceptions
 from model_json import ModelJSON
@@ -221,6 +223,7 @@ class TestModulJSON:
         # ---- replace objects with their names ----
         children_list = [x.name for x in node_content['children']]  # get children names
         node_content['children'] = children_list  # put children names instead of objects
+        # get parent date_modified datastamp
         # assert block
         assert node_content['name'] == expected['name']
         assert node_content['parent_guid'] == expected['parent_guid']
@@ -238,12 +241,17 @@ class TestModulJSON:
         # update url
         node_name = 'URL'
         new_attr_url = {'name': 'new_URL', 'url': 'www.google.com', 'icon': 'new_ICON', 'keywords': 'new keys'}
+        # get <today> datestamp for following test
+        today = datetime.today().replace(microsecond=0)  # get today datetime object
         self.jm.update_node(node_name, new_attr_url)  # update url
         node_name = 'new_URL'
         expected = {'name': 'new_URL', 'parent_guid': parent_guid,
                     'url': 'www.google.com', 'icon': 'new_ICON', 'keywords': 'new keys', }
         node_object = self.jm.root.nodes_dict[node_name]  # get the node instance
         node_content = node_object.__dict__.copy()  # local copy of the node's dict
+        # get folder.date_modified stamp
+        node_object = self.jm.root.nodes_dict['FOLDER']  # get the roots node instance
+        date_modified = node_object.date_modified  # get date_modified field of parent node
         # assert block
         assert node_content['name'] == expected['name']
         assert node_content['parent_guid'] == expected['parent_guid']
@@ -254,6 +262,7 @@ class TestModulJSON:
         assert node_content['url'] == expected['url']
         assert node_content['icon'] == expected['icon']
         assert node_content['keywords'] == expected['keywords']
+        assert date_modified == datetime.isoformat(today)
 
         self.jm.delete_database(filename)
 
@@ -436,7 +445,7 @@ class TestModulJSON:
 
         self.jm.delete_database(filename)
 
-    def test_get_child_names(self):
+    def test_get_children(self):
         filename = 'database.json'
         if os.path.isfile(filename):
             os.remove(filename)  # remove the filename if it exists
@@ -465,12 +474,12 @@ class TestModulJSON:
             print('\nException NodeNotExist raised successfully:', e, file=sys.stderr)
 
         node_name = 'folder'  # parent folder name has 3 urls
-        result, data = self.jm.get_child_names(node_name)
+        result, data = self.jm.get_children(node_name)
         assert result  # True for a folder
         assert data == ('URL_1', 'URL_2', 'URL_3')
 
         node_name = 'URL_1'  # an url does not have children
-        result, data = self.jm.get_child_names(node_name)
+        result, data = self.jm.get_children(node_name)
         assert not result  # False for a folder
         assert data == ()  # empty tuple
 

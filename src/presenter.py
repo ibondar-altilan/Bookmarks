@@ -10,6 +10,7 @@ import traceback
 import typing as t
 
 import exceptions  # user exceptions
+from model_interface import Model
 from model_json import ModelJSON  # connection to the Model part of the pattern
 
 from view_interface import View
@@ -47,12 +48,11 @@ class Presenter:
             MenuItem("Exit", self.exit_of_loop),
         )  # main menu
 
-        self.view = View(ViewCLI())  # instance of a View implementation, here for CLI interface
-        self.menu_items = self.START_MENU    # prepare for start main menu
-        self.tree_model = ModelJSON()   # create an instance of the Model module
+        self.view = View(ViewCLI())  # instance of a View implementation, here for CLI terminal
+        self.menu_items: tuple[MenuItem, ...] = self.START_MENU    # prepare for start main menu
+        self.model = Model(ModelJSON()) # instance of a Model implementation, here for internal/JSON version
 
     # ---- begin of the execution methods section ----
-
     @staticmethod
     def exit_of_loop() -> tuple[bool, str]:
         """Exit from the executive menu, empty argument for compatibility
@@ -75,17 +75,17 @@ class Presenter:
         if name is None:
             return False  # break
         try:
-            self.tree_model.create_database(name)    # create a new database file
+            self.model.create_database(name)    # create a new database file
         except FileExistsError:     # this file already exists
-            except_message = f'File <{name}> already exists in the work directory {self.tree_model.cwd}'
+            except_message = f'File <{name}> already exists in the work directory {self.model.cwd}'
             self.view.output_string(except_message)
             prompt = f'Do you want to overwrite bookmark tree <{name}>? All data will be lost... (Yes/No)'  # ask Y/N
             if not self.view.input_yes_or_no(prompt):  # if not
                 self.view.output_string(f'Hold an existing bookmark tree <{name}>'
                                         f' {chr(10)}')  # chr(10) instead of '\n', which is not possible in the f-string
                 return True  # to the main menu
-            self.tree_model.delete_database(name)   # delete existing db and file before
-            self.tree_model.create_database(name)  # create a new database file
+            self.model.delete_database(name)   # delete existing db and file before
+            self.model.create_database(name)  # create a new database file
         self.menu_items = self.MAIN_MENU    # if file creating was ok - set the full main menu
         self.view.output_string(f'Current database is <{name}> {chr(10)}')  # output the current db name
         return True
@@ -101,9 +101,9 @@ class Presenter:
         if name is None:
             return False  # break
         try:
-            self.tree_model.open_database(name)  # open database file
+            self.model.open_database(name)  # open database file
         except FileNotFoundError:
-            except_message = f'File <{name}> does not exist in the work directory {self.tree_model.cwd}{chr(10)}'
+            except_message = f'File <{name}> does not exist in the work directory {self.model.cwd}{chr(10)}'
             self.view.output_string(except_message)     # output an error
             return False  # to the main menu
         self.menu_items = self.MAIN_MENU    # if ok - set the full main menu
@@ -113,7 +113,7 @@ class Presenter:
     def add_bookmark(self) -> bool:
         """Add a new node to the current tree, folder of url.
         Request a name for a new bookmark (alphabetic and numeric characters, additional
-        characters from VALID_CHARS only).
+        characters from VALID_CHARS only). Duplicate names will be rejected.
         Request the name of the parent folder to add the bookmark and check if it exists.
         Request of type of the new bookmark: folder or url.
         Get the values for the url type bookmark fields.
@@ -129,6 +129,14 @@ class Presenter:
         name = self.view.input_line(prompt, VALID_CHARS)  # get the bookmark name
         if name is None or not name:
             return False  # break
+        # check duplicate names here
+        try:
+            result, data = self.model.get_children(name)
+            message = f'Bookmark <{name}> already exists {chr(10)}'
+            self.view.output_string(message)  # output an error message
+            return False  # to the main menu
+        except exceptions.NodeNotExists:
+            pass  # ok, new node name is unique
         attr_dict['name'] = name    # set a name of the new node
 
         # ---- parent folder request and check if it exists ----
@@ -138,7 +146,7 @@ class Presenter:
             return False  # break
 
         try:
-            result, data = self.tree_model.get_child_names(name)  # get children names if they present
+            result, data = self.model.get_children(name)  # get children names if they present
         except exceptions.NodeNotExists as e:
             self.view.output_string(str(e))  # output error if name doesn't exist
             return False  # to the main menu
@@ -156,17 +164,26 @@ class Presenter:
         if not node_type:   # that's an url, get additional args
             # get an url attribute
             prompt = "Input an URL for the new bookmark"  # set a prompt for the URL request
-            attr_dict['url'] = self.view.input_line(prompt, VALID_CHARS)
+            res = self.view.input_line(prompt)
+            if res is None:
+                return False  # break
+            attr_dict['url'] = res
 
             # get an icon attribute
             prompt = "Input an icon for the new bookmark"  # set a prompt for the icon request
-            attr_dict['icon'] = self.view.input_line(prompt, VALID_CHARS)
+            res = self.view.input_line(prompt)
+            if res is None:
+                return False  # break
+            attr_dict['icon'] = res
 
             # get a keywords attribute
             prompt = "Input keywords for the new bookmark"  # set a prompt for the keywords request
-            attr_dict['keywords'] = self.view.input_line(prompt, VALID_CHARS)
+            res = self.view.input_line(prompt)
+            if res is None:
+                return False  # break
+            attr_dict['keywords'] = res
 
-        self.tree_model.add_node(attr_dict, node_type)    # add the node to the tree
+        self.model.add_node(attr_dict, node_type)    # add the node to the tree
         message = f'Folder/Url <{attr_dict["name"]}> has been added {chr(10)}'
         self.view.output_string(message)  # output a success message
         return True
@@ -179,16 +196,17 @@ class Presenter:
 
         :return: True for success otherwise False
         """
+        result: t.Optional[bool]  # explicit type declaration for mypy
         node_name: str = 'roots'  # initial folder of the tree
         node_stack: list[str] = []  # stack of the folders
         while True:
             # node selection loop
             try:
-                result, item_list = self.tree_model.get_child_names(node_name)  # get children names of the node
+                result, item_list = self.model.get_children(node_name)  # get children names of the node
                 if not result:  # False
                     # an url has been selected
                     try:
-                        attr_dict = self.tree_model.get_node(node_name)  # get all attributes of the node if it exists
+                        attr_dict = self.model.get_node(node_name)  # get all attributes of the node if it exists
                     except exceptions.NodeNotExists as e:
                         traceback.print_exception(e, file=sys.stdout)  # traceback output
                         sys.exit(1)  # stop execution with an error
@@ -205,7 +223,7 @@ class Presenter:
                             return False # break, return to main menu
                         case [False, _]:  # return to the node selection
                             node_name = node_stack.pop()  # get the previous node name from the node's stack
-                            result, item_list = self.tree_model.get_child_names(node_name)  # get children names
+                            result, item_list = self.model.get_children(node_name)  # get children names
 
                         case [True, _]:  # node has been selected
                             editing_field = Field(selected_field, filtered_attrs[selected_field])  # tuple(name, value)
@@ -213,7 +231,7 @@ class Presenter:
                             if new_field is None:
                                 return False  # break, return to main menu
                             filtered_attrs[selected_field] = new_field  # update attrs of node
-                            self.tree_model.update_node(node_name, filtered_attrs)  # update the node in the tree
+                            self.model.update_node(node_name, filtered_attrs)  # update the node in the tree
                             message = f'Folder/Url <{node_name}> has been modified {chr(10)}'
                             self.view.output_string(message)  # output a success message
                             return True
@@ -246,7 +264,7 @@ class Presenter:
                         node_name = node_stack.pop()  # get the parent folder name from the node's stack
                 case [False, 1]:  # modify this folder
                     try:
-                        attr_dict = self.tree_model.get_node(node_name)  # get all attributes of the node if it exists
+                        attr_dict = self.model.get_node(node_name)  # get all attributes of the node if it exists
                     except exceptions.NodeNotExists as e:
                         traceback.print_exception(e, file=sys.stdout)  # traceback output
                         sys.exit(1)  # stop execution with an error
@@ -260,7 +278,7 @@ class Presenter:
                             return False  # break, return to main menu
                         case [False, _]:  # return to the node selection
                             node_name = node_stack.pop()  # get the previous node name from the node's stack
-                            result, item_list = self.tree_model.get_child_names(node_name)  # get children names
+                            result, item_list = self.model.get_children(node_name)  # get children names
                         case [True, _]:  # node has been selected
                             if filtered_attrs[selected_field] != 'roots':
                                 editing_field = Field(selected_field,
@@ -269,7 +287,7 @@ class Presenter:
                                 if new_field is None:
                                     return False  # break, return to main menu
                                 filtered_attrs[selected_field] = new_field  # update attrs of node
-                                self.tree_model.update_node(node_name, filtered_attrs)  # update the node in the tree
+                                self.model.update_node(node_name, filtered_attrs)  # update the node in the tree
                                 node_name = filtered_attrs['name']  # get the new folder name
                             else:
                                 message = f'Node <roots> can not be renamed. {chr(10)}'
@@ -297,7 +315,8 @@ class Presenter:
         # ---- name request ----
         prompt = "Input the name of the bookmark"  # set a prompt for the name request
         name = self.view.input_line(prompt, VALID_CHARS)  # get the bookmark name
-
+        if name is None or not name:
+            return False  # break
         # ---- root folder can't be deleted ----
         if name == 'roots':
             self.view.output_string(f'Folder <{name}> can not be deleted {chr(10)}')
@@ -305,9 +324,9 @@ class Presenter:
 
         # ---- check if exists and if it's ok then delete the node or error output
         try:
-            self.tree_model.delete_node(name)  # delete the node
+            self.model.delete_node(name)  # delete the node
         except (exceptions.NodeNotExists, exceptions.FolderNotEmpty) as e:
-            self.view.output_string(e)  # named folder doesn't exist or not empty, output an error message
+            self.view.output_string(str(e))  # named folder doesn't exist or not empty, output an error message
             return False
         else:
             message = f'Bookmark {name} has been deleted {chr(10)}'
@@ -321,7 +340,7 @@ class Presenter:
         :return: True for success otherwise False
         """
         def _output_loop(node_name, tab):
-            result, child_names = self.tree_model.get_child_names(node_name)  # get children names of the <node_name>
+            result, child_names = self.model.get_children(node_name)  # get children names of the <node_name>
             if result:  # node has children, this is a folder
                 self.view.output_header(f'Folder <{node_name}> BEGIN', tab)  # BEGIN of the folder <node_name>
                 tab += 8  # increment of tab shift
@@ -359,7 +378,7 @@ class Presenter:
             with open(filename, 'r') as f:  # open the source file, or FileNotFoundError exception
                 pass
         except FileNotFoundError:
-            except_message = f'File "{filename}" not exists in the work directory {self.tree_model.cwd}'
+            except_message = f'File "{filename}" not exists in the work directory {self.model.cwd}'
             self.view.output_string(except_message)     # output an error
             return False  # to the main menu
 
@@ -370,8 +389,8 @@ class Presenter:
 
         # ---- request a format of the source file: Chrome, Mozilla or smth. else ----
         menu_items = (
-             MenuItem("Convert from Chrome JSON format",  self.tree_model.convert_chrome),
-             MenuItem("Convert from Mozilla format", self.tree_model.convert_mozilla),
+             MenuItem("Convert from Chrome JSON format", self.model.convert_chrome),
+             MenuItem("Convert from Mozilla format", self.model.convert_mozilla),
              MenuItem("Exit", self.exit_of_loop)
         )   # a local menu for format selection
 
