@@ -81,7 +81,7 @@ class Presenter:
             self.view.output_string(except_message)
             prompt = f'Do you want to overwrite bookmark tree <{name}>? All data will be lost... (Yes/No)'  # ask Y/N
             if not self.view.input_yes_or_no(prompt):  # if not
-                self.view.output_string(f'Hold an existing bookmark tree <{name}>'
+                self.view.output_string(f'Keep an existing bookmark tree <{name}>'
                                         f' {chr(10)}')  # chr(10) instead of '\n', which is not possible in the f-string
                 return True  # to the main menu
             self.model.delete_database(name)   # delete existing db and file before
