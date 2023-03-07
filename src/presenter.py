@@ -83,7 +83,7 @@ class Presenter:
             if not self.view.input_yes_or_no(prompt):  # if not
                 self.view.output_string(f'Keep an existing bookmark tree <{name}>'
                                         f' {chr(10)}')  # chr(10) instead of '\n', which is not possible in the f-string
-                return True  # to the main menu
+                return False  # to the main menu
             self.model.delete_database(name)   # delete existing db and file before
             self.model.create_database(name)  # create a new database file
         self.menu_items = self.MAIN_MENU    # if file creating was ok - set the full main menu
@@ -199,6 +199,7 @@ class Presenter:
         result: t.Optional[bool]  # explicit type declaration for mypy
         node_name: str = 'roots'  # initial folder of the tree
         node_stack: list[str] = []  # stack of the folders
+        self.view.output_header(self.view.main_header)  # output menu header
         while True:
             # node selection loop
             try:
@@ -215,8 +216,8 @@ class Presenter:
 
                     # edit the filtered attributes of the selected node
                     # select a field to edit
-                    self.view.output_header(self.view.main_header)  # output menu header
-                    result, selected_field = self.view.select_field(filtered_attrs, node_name)  # field request
+                    copy_filtered_attrs = filtered_attrs.copy()  # keep mutable arg for pytest
+                    result, selected_field = self.view.select_field(copy_filtered_attrs, node_name)  # field request
 
                     match result, selected_field:  # parsing results of selection
                         case [None, _]:
@@ -247,7 +248,6 @@ class Presenter:
                 return False
 
             # a folder was selected
-            self.view.output_header(self.view.main_header)  # output menu header
             comm_list = ('Return to the previous selection',
                          'Modify current node')  # the commands for selection list
             header1 = self.view.main_header  # get the current main header
@@ -270,9 +270,9 @@ class Presenter:
                         sys.exit(1)  # stop execution with an error
                     # ok, continue
                     filtered_attrs = {key: attr_dict[key] for key in FOLDER_FIELDS}  # a dict with only required fields
-
+                    copy_filtered_attrs = filtered_attrs.copy()  # keep mutable arg for pytest
                     # select a folder field
-                    result, selected_field = self.view.select_field(filtered_attrs, node_name)  # selection request
+                    result, selected_field = self.view.select_field(copy_filtered_attrs, node_name)  # selection request
                     match result, selected_field:  # parsing results of selection
                         case [None, _]:
                             return False  # break, return to main menu

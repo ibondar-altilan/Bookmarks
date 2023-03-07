@@ -22,7 +22,7 @@ class NodeNotExists(MyProjectError):
     """Raise if named node doesn't exist in the common dict of nodes. It returns an appropriate error message"""
     def __init__(self, node_name):
         super().__init__(
-            f'Node <{node_name}> does not exists {chr(10)}'
+            f'Node <{node_name}> does not exist {chr(10)}'
         )
 
 

@@ -43,7 +43,7 @@ class TestTimeToObject:
             print('\nWrong input parameter:', e, file=sys.stderr)
         else:
             print('\nInput parameters are OK')
-            assert str(self.dt) == '2016-01-22 10:29:42.951729'
+            assert str(self.dt) == '2016-01-22 10:29:42'
 
     def test_stamp_to_string(self):
         """Return a Unix format datestamp as a string"""

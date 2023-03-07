@@ -2,16 +2,6 @@
 This version creates an internal tree of node objects.
 The bookmark tree is stored into a file in the json format.
 Methods of ModelJSON class for an interface:
-    get_child_names
-    add_node
-    update_node
-    delete_node
-    get_node
-    create_database
-    delete_database
-    open_database
-    convert_chrome
-    convert_mozilla
 
 """
 import os
@@ -152,7 +142,7 @@ class ModelJSON:
 
     def open_database(self, name: str):
         """Open a database, read and extract it into a bookmark tree.
- node
+
         :exception: FileNotFoundError if the filename does not exist
 
         :param name: name and filename of the deleting database
