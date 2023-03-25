@@ -61,7 +61,11 @@ class ViewCLI:
         :param prompt: prompt text for the user request
         :return: True for yes and False otherwise
         """
-        answer = input(prompt + ' --> ')    # input a string
+        try:
+            answer = input(prompt + ' --> ')    # input a string
+        except EOFError:  # intercept Ctr-D exception for Linux
+            print()
+            answer = ''
         if answer.lower() == 'yes':  # convert input to lowercase
             return True
         else:
@@ -76,7 +80,10 @@ class ViewCLI:
         :param valid_chars: template of valid characters, default to empty
         :return: entered string, empty string if non-allowed characters were occurred, None for EOF break
         """
-        text = input(prompt + ' --> ')  # input a string
+        try:
+            text = input(prompt + ' --> ')  # input a string
+        except EOFError:  # intercept Ctr-D exception for Linux
+            text = '\04'
         if '\x04' in text:  # EOF was entered
             return None  # break
         wrong_chars = ''  # a string for incorrect chars
@@ -101,7 +108,10 @@ class ViewCLI:
         while True:
             print("Choose, please, an option or enter EOF and RETURN for input break:")  # user prompt
             items = [print(str(i+1) + '. ' + item) for i, item in enumerate(item_list)]  # get numbered list
-            item_number = input("--> ")  # get the input
+            try:
+                item_number = input("--> ")  # get the input
+            except EOFError:  # intercept Ctr-D exception for Linux
+                item_number = '\04'
             # check if the input is an eligible number, if not - repeat input
             if item_number.isdigit() and int(item_number) in range(1, len(items) + 1):
                 return int(item_number) - 1  # return row index in the list

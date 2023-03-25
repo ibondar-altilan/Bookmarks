@@ -28,7 +28,7 @@ class Presenter:
 
     def __init__(self):
         """Constructor method.
-
+`
         """
         self.START_MENU = (
             MenuItem("Create a new bookmark's tree", self.create_tree),
